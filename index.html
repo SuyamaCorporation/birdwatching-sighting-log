@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>バードウォッチング 観察ログ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4">
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-2xl font-bold mb-1 text-emerald-400">バードウォッチング 観察ログ</h1>
+    <p class="text-gray-400 text-sm mb-4">野鳥観察記録・統計・CSV出力</p>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-3 mb-4">
+      <div class="bg-gray-800 rounded p-3 text-center">
+        <div class="text-xs text-gray-400">総記録数</div>
+        <div id="stat-total" class="text-2xl font-bold text-emerald-400">0</div>
+      </div>
+      <div class="bg-gray-800 rounded p-3 text-center">
+        <div class="text-xs text-gray-400">ユニーク種数</div>
+        <div id="stat-species" class="text-2xl font-bold text-blue-400">0</div>
+      </div>
+      <div class="bg-gray-800 rounded p-3 text-center">
+        <div class="text-xs text-gray-400">今月観察数</div>
+        <div id="stat-month" class="text-2xl font-bold text-yellow-400">0</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <!-- Input form -->
+      <div class="bg-gray-800 rounded p-4">
+        <h2 class="text-sm font-bold text-gray-300 mb-3">新規記録</h2>
+        <div class="space-y-2">
+          <div>
+            <label for="rec-date" class="block text-xs text-gray-400 mb-1">日付 *</label>
+            <input id="rec-date" type="date"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label for="rec-species" class="block text-xs text-gray-400 mb-1">種名 *</label>
+            <input id="rec-species" type="text" list="species-list" placeholder="例: スズメ"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-emerald-500">
+            <datalist id="species-list">
+              <option value="スズメ"><option value="ハシブトガラス"><option value="ヒヨドリ">
+              <option value="ムクドリ"><option value="シジュウカラ"><option value="メジロ">
+              <option value="コゲラ"><option value="ジョウビタキ"><option value="ツグミ">
+              <option value="カワセミ"><option value="オオルリ"><option value="キビタキ">
+              <option value="ツバメ"><option value="トビ"><option value="カルガモ">
+              <option value="コサギ"><option value="アオサギ"><option value="ハクセキレイ">
+            </datalist>
+          </div>
+          <div>
+            <label for="rec-location" class="block text-xs text-gray-400 mb-1">場所</label>
+            <input id="rec-location" type="text" placeholder="例: 代々木公園"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-emerald-500">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label for="rec-weather" class="block text-xs text-gray-400 mb-1">天気</label>
+              <select id="rec-weather"
+                class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-emerald-500">
+                <option value="晴">☀ 晴</option>
+                <option value="曇">🌥 曇</option>
+                <option value="雨">🌧 雨</option>
+                <option value="霧">🌫 霧</option>
+              </select>
+            </div>
+            <div>
+              <label for="rec-count" class="block text-xs text-gray-400 mb-1">羽数</label>
+              <input id="rec-count" type="number" value="1" min="1"
+                class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-emerald-500">
+            </div>
+          </div>
+          <div>
+            <label for="rec-note" class="block text-xs text-gray-400 mb-1">メモ</label>
+            <input id="rec-note" type="text" placeholder="鳴き声・行動など"
+              class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-emerald-500">
+          </div>
+          <button id="add-rec-btn"
+            class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded font-medium transition-colors mt-2"
+            aria-label="観察記録を追加する">
+            + 記録する
+          </button>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="bg-gray-800 rounded p-4">
+        <h2 class="text-sm font-bold text-gray-300 mb-2">月別観察数（直近6ヶ月）</h2>
+        <canvas id="chart-canvas" width="320" height="200"
+          role="img" aria-label="月別野鳥観察数棒グラフ"></canvas>
+      </div>
+    </div>
+
+    <!-- Records list -->
+    <div class="bg-gray-800 rounded p-4 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-bold text-gray-300">観察記録一覧</h2>
+        <div class="flex gap-2">
+          <input id="filter-input" type="text" placeholder="種名・場所で検索"
+            class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-emerald-500 w-36"
+            aria-label="記録を検索する">
+          <button id="csv-btn"
+            class="bg-teal-700 hover:bg-teal-600 text-white px-3 py-1 rounded text-xs transition-colors"
+            aria-label="CSV形式でダウンロードする">
+            CSV出力
+          </button>
+        </div>
+      </div>
+      <div id="records-list" class="space-y-1 max-h-80 overflow-y-auto"></div>
+    </div>
+  </div>
+
+  <script>
+    const LS_KEY = 'birdwatch-records';
+    let records = [];
+
+    function loadData() {
+      try { records = JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch(e) { records = []; }
+    }
+    function saveData() {
+      localStorage.setItem(LS_KEY, JSON.stringify(records));
+    }
+
+    // Set default date
+    document.getElementById('rec-date').value = new Date().toISOString().slice(0, 10);
+
+    document.getElementById('add-rec-btn').addEventListener('click', () => {
+      const date = document.getElementById('rec-date').value;
+      const species = document.getElementById('rec-species').value.trim();
+      if (!date || !species) { alert('日付と種名は必須です。'); return; }
+      records.unshift({
+        id: Date.now(),
+        date,
+        species,
+        location: document.getElementById('rec-location').value.trim(),
+        weather: document.getElementById('rec-weather').value,
+        count: parseInt(document.getElementById('rec-count').value) || 1,
+        note: document.getElementById('rec-note').value.trim()
+      });
+      saveData();
+      document.getElementById('rec-species').value = '';
+      document.getElementById('rec-location').value = '';
+      document.getElementById('rec-note').value = '';
+      document.getElementById('rec-count').value = '1';
+      render();
+    });
+
+    function render() {
+      updateStats();
+      renderList();
+      drawChart();
+    }
+
+    function updateStats() {
+      const now = new Date();
+      const ym = now.getFullYear() * 100 + now.getMonth();
+      let thisMonth = 0;
+      const species = new Set();
+      records.forEach(r => {
+        species.add(r.species);
+        const d = new Date(r.date);
+        if (d.getFullYear() * 100 + d.getMonth() === ym) thisMonth++;
+      });
+      document.getElementById('stat-total').textContent = records.length;
+      document.getElementById('stat-species').textContent = species.size;
+      document.getElementById('stat-month').textContent = thisMonth;
+    }
+
+    const weatherIcons = { '晴': '☀', '曇': '🌥', '雨': '🌧', '霧': '🌫' };
+
+    function renderList() {
+      const container = document.getElementById('records-list');
+      container.textContent = '';
+      const filter = document.getElementById('filter-input').value.toLowerCase();
+      const filtered = records.filter(r =>
+        r.species.toLowerCase().includes(filter) ||
+        (r.location || '').toLowerCase().includes(filter)
+      );
+      if (filtered.length === 0) {
+        const msg = document.createElement('p');
+        msg.className = 'text-gray-500 text-sm text-center py-4';
+        msg.textContent = '記録がありません';
+        container.appendChild(msg);
+        return;
+      }
+      filtered.forEach(r => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 bg-gray-750 border border-gray-700 rounded px-3 py-2 text-sm';
+
+        const dateEl = document.createElement('span');
+        dateEl.className = 'text-gray-400 text-xs w-20 shrink-0';
+        dateEl.textContent = r.date;
+
+        const speciesEl = document.createElement('span');
+        speciesEl.className = 'font-medium text-emerald-300 w-24 shrink-0';
+        speciesEl.textContent = r.species;
+
+        const locEl = document.createElement('span');
+        locEl.className = 'text-gray-400 text-xs flex-1';
+        locEl.textContent = r.location || '';
+
+        const weatherEl = document.createElement('span');
+        weatherEl.className = 'text-xs shrink-0';
+        weatherEl.textContent = (weatherIcons[r.weather] || '') + ' ' + (r.count > 1 ? r.count + '羽' : '');
+
+        const noteEl = document.createElement('span');
+        noteEl.className = 'text-gray-500 text-xs hidden md:block max-w-32 truncate';
+        noteEl.textContent = r.note || '';
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'text-gray-600 hover:text-red-400 text-xs transition-colors ml-2';
+        delBtn.setAttribute('aria-label', r.species + 'の記録を削除する');
+        delBtn.textContent = '✕';
+        delBtn.addEventListener('click', () => {
+          records = records.filter(x => x.id !== r.id);
+          saveData();
+          render();
+        });
+
+        row.appendChild(dateEl);
+        row.appendChild(speciesEl);
+        row.appendChild(locEl);
+        row.appendChild(weatherEl);
+        row.appendChild(noteEl);
+        row.appendChild(delBtn);
+        container.appendChild(row);
+      });
+    }
+
+    function drawChart() {
+      const canvas = document.getElementById('chart-canvas');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#1f2937';
+      ctx.fillRect(0, 0, W, H);
+
+      // Build last 6 months data
+      const months = [];
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push({
+          label: (d.getMonth() + 1) + '月',
+          year: d.getFullYear(),
+          month: d.getMonth(),
+          count: 0
+        });
+      }
+      records.forEach(r => {
+        const d = new Date(r.date);
+        const m = months.find(x => x.year === d.getFullYear() && x.month === d.getMonth());
+        if (m) m.count++;
+      });
+
+      const maxVal = Math.max(...months.map(m => m.count), 1);
+      const PAD = { top: 20, right: 10, bottom: 30, left: 35 };
+      const GW = W - PAD.left - PAD.right;
+      const GH = H - PAD.top - PAD.bottom;
+      const barW = Math.floor(GW / months.length * 0.6);
+      const gap = GW / months.length;
+
+      // Y gridlines
+      ctx.strokeStyle = '#374151';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = PAD.top + GH * i / 4;
+        ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + GW, y); ctx.stroke();
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(Math.round(maxVal * (4 - i) / 4), PAD.left - 4, y + 4);
+      }
+
+      months.forEach((m, i) => {
+        const barH = m.count / maxVal * GH;
+        const x = PAD.left + gap * i + (gap - barW) / 2;
+        const y = PAD.top + GH - barH;
+
+        // Bar
+        const grad = ctx.createLinearGradient(x, y, x, PAD.top + GH);
+        grad.addColorStop(0, '#34d399');
+        grad.addColorStop(1, '#065f46');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y, barW, barH);
+
+        // Count label
+        if (m.count > 0) {
+          ctx.fillStyle = '#e5e7eb';
+          ctx.font = '11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(m.count, x + barW / 2, y - 4);
+        }
+
+        // Month label
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(m.label, x + barW / 2, PAD.top + GH + 16);
+      });
+    }
+
+    document.getElementById('filter-input').addEventListener('input', renderList);
+
+    document.getElementById('csv-btn').addEventListener('click', () => {
+      const header = ['日付', '種名', '場所', '天気', '羽数', 'メモ'];
+      const rows = records.map(r => [r.date, r.species, r.location, r.weather, r.count, r.note].map(v => `"${String(v || '').replace(/"/g, '""')}"`));
+      const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+      const bom = '﻿';
+      const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'birdwatch-' + new Date().toISOString().slice(0,10) + '.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    loadData();
+    render();
+  </script>
+</body>
+</html>
